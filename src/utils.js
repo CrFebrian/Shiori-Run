@@ -63,8 +63,40 @@ export function formatDurasi(totalDetik) {
 // durasiDetik=1680, jarakKm=5 → "5:36/km"
 export function formatPace(durasiDetik, jarakKm) {
   if (!jarakKm || jarakKm <= 0) return '-';
-  const detikPerKm = durasiDetik / jarakKm;
+  return formatPacePerKm(durasiDetik / jarakKm);
+}
+
+// detikPerKm=336 → "5:36/km" (dipakai saat pace sudah dalam bentuk detik/km, kayak di buddy finder)
+export function formatPacePerKm(detikPerKm) {
   const menit = Math.floor(detikPerKm / 60);
   const detik = Math.round(detikPerKm % 60);
   return `${menit}:${String(detik).padStart(2, '0')}/km`;
+}
+
+// "06:00", "6:00" → menit sejak 00:00 (360). null kalau format salah.
+export function parseJam(raw) {
+  const m = String(raw).trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+// 360 → "06:00"
+export function formatJam(menitSejakTengahMalam) {
+  const j = Math.floor(menitSejakTengahMalam / 60);
+  const m = menitSejakTengahMalam % 60;
+  return `${String(j).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// Jarak antara 2 titik koordinat bumi (km), rumus Haversine — dipakai buat
+// matching Buddy Finder, murni matematika, nggak butuh API peta apapun.
+export function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // radius bumi, km
+  const toRad = d => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }

@@ -20,7 +20,46 @@ db.exec(`
     created_at INTEGER NOT NULL  -- unix ms, buat urutan /riwayat
   );
   CREATE INDEX IF NOT EXISTS idx_runs_user_tanggal ON runs (user_id, tanggal);
+
+  CREATE TABLE IF NOT EXISTS buddy_prefs (
+    user_id TEXT PRIMARY KEY,
+    jam_menit INTEGER NOT NULL,   -- menit sejak 00:00, dari parseJam()
+    lokasi_nama TEXT NOT NULL,
+    lat REAL NOT NULL,
+    lon REAL NOT NULL,
+    radius_km REAL NOT NULL,
+    pace_detik INTEGER NOT NULL,  -- target pace, detik per km
+    updated_at INTEGER NOT NULL
+  );
 `);
+
+export function upsertBuddyPref({ userId, jamMenit, lokasiNama, lat, lon, radiusKm, paceDetik }) {
+  db.prepare(`
+    INSERT INTO buddy_prefs (user_id, jam_menit, lokasi_nama, lat, lon, radius_km, pace_detik, updated_at)
+    VALUES (@userId, @jamMenit, @lokasiNama, @lat, @lon, @radiusKm, @paceDetik, @updatedAt)
+    ON CONFLICT(user_id) DO UPDATE SET
+      jam_menit = excluded.jam_menit,
+      lokasi_nama = excluded.lokasi_nama,
+      lat = excluded.lat,
+      lon = excluded.lon,
+      radius_km = excluded.radius_km,
+      pace_detik = excluded.pace_detik,
+      updated_at = excluded.updated_at
+  `).run({ userId, jamMenit, lokasiNama, lat, lon, radiusKm, paceDetik, updatedAt: Date.now() });
+}
+
+export function getBuddyPref(userId) {
+  return db.prepare('SELECT * FROM buddy_prefs WHERE user_id = ?').get(userId);
+}
+
+export function deleteBuddyPref(userId) {
+  const info = db.prepare('DELETE FROM buddy_prefs WHERE user_id = ?').run(userId);
+  return info.changes > 0;
+}
+
+export function listOtherBuddyPrefs(excludeUserId) {
+  return db.prepare('SELECT * FROM buddy_prefs WHERE user_id != ?').all(excludeUserId);
+}
 
 export function insertRun({ userId, jarakKm, durasiDetik, tanggal }) {
   const stmt = db.prepare(`

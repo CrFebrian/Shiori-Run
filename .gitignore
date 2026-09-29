@@ -1,10 +1,8 @@
 # Secrets — JANGAN pernah commit token bot
 .env
-
-# Dependencies
 node_modules/
 
-# Database lokal — data personal, nggak perlu ikut ke repo
+# Database lokal
 data/
 *.db
 *.db-journal
