@@ -5,7 +5,8 @@ import {
 import { insertRun } from '../db.js';
 import { formatDurasi, formatPace } from '../utils.js';
 
-const GROQ_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+// langsung di https://console.groq.com/docs/vision (bagian "Supported Model").
+const GROQ_VISION_MODEL = 'qwen/qwen3.8-27b';
 
 export const data = new SlashCommandBuilder()
   .setName('lari-foto')
