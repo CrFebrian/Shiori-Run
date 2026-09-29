@@ -1,0 +1,20 @@
+# Secrets — JANGAN pernah commit token bot
+.env
+
+# Dependencies
+node_modules/
+
+# Database lokal — data personal, nggak perlu ikut ke repo
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/

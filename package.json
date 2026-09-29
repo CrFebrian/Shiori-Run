@@ -1,0 +1,19 @@
+{
+  "name": "lari-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord personal untuk catat lari manual (/lari, /rekap, /riwayat, /hapus)",
+  "main": "src/index.js",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}
