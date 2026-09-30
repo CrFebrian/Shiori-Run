@@ -35,5 +35,12 @@ export async function execute(interaction) {
       { name: 'Jarak terjauh', value: `${rekap.jarakTerjauh.toFixed(2)} km`, inline: true },
     );
 
+  if (rekap.rataDetakJantung) {
+    embed.addFields({ name: 'Rata-rata detak jantung', value: `${rekap.rataDetakJantung} bpm`, inline: true });
+  }
+  if (rekap.totalElevasi > 0) {
+    embed.addFields({ name: 'Total elevasi', value: `${rekap.totalElevasi.toFixed(0)} m`, inline: true });
+  }
+
   await interaction.reply({ embeds: [embed] });
 }

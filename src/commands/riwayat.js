@@ -17,9 +17,15 @@ export async function execute(interaction) {
     return interaction.reply({ content: 'Belum ada catatan lari sama sekali. Coba `/lari` dulu.' });
   }
 
-  const lines = runs.map(r =>
-    `\`#${r.id}\` **${r.tanggal}** — ${r.jarakKm.toFixed(2)} km, ${formatDurasi(r.durasiDetik)} (${formatPace(r.durasiDetik, r.jarakKm)})`
-  );
+  const lines = runs.map(r => {
+    let line = `\`#${r.id}\` **${r.tanggal}** — ${r.jarakKm.toFixed(2)} km, ${formatDurasi(r.durasiDetik)} (${formatPace(r.durasiDetik, r.jarakKm)})`;
+    const extra = [];
+    if (r.detakJantung) extra.push(`❤️ ${r.detakJantung}bpm`);
+    if (r.elevasiM) extra.push(`⛰️ ${r.elevasiM}m`);
+    if (r.zonaDominan) extra.push(r.zonaDominan);
+    if (extra.length) line += ` — ${extra.join(', ')}`;
+    return line;
+  });
 
   const embed = new EmbedBuilder()
     .setColor(0x9b59b6)
