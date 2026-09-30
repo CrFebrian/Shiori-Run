@@ -5,7 +5,7 @@ import {
 import { insertRun } from '../db.js';
 import { formatDurasi, formatPace } from '../utils.js';
 
-// langsung di https://console.groq.com/docs/vision (bagian "Supported Model").
+// Catatan: model vision Groq ini sering banget berubah (sudah 3x ganti nama
 const GROQ_VISION_MODEL = 'qwen/qwen3.8-27b';
 
 export const data = new SlashCommandBuilder()
@@ -42,6 +42,9 @@ export async function execute(interaction) {
   const jarakKm = hasil.jarakKm;
   const durasiDetik = hasil.durasiDetik;
   const tanggal = tanggalOverride || hasil.tanggal || new Date().toISOString().slice(0, 10);
+  const detakJantung = hasil.detakJantung;
+  const elevasiM = hasil.elevasiM;
+  const zonaDominan = hasil.zonaDominan;
 
   const previewEmbed = new EmbedBuilder()
     .setColor(0xf1c40f)
@@ -51,7 +54,13 @@ export async function execute(interaction) {
       { name: 'Waktu', value: formatDurasi(durasiDetik), inline: true },
       { name: 'Pace', value: formatPace(durasiDetik, jarakKm), inline: true },
       { name: 'Tanggal', value: tanggal, inline: true },
-    )
+    );
+
+  if (detakJantung) previewEmbed.addFields({ name: 'Detak jantung', value: `${detakJantung} bpm`, inline: true });
+  if (elevasiM !== null) previewEmbed.addFields({ name: 'Elevasi', value: `${elevasiM} m`, inline: true });
+  if (zonaDominan) previewEmbed.addFields({ name: 'Zona', value: zonaDominan, inline: true });
+
+  previewEmbed
     .setThumbnail(foto.url)
     .setFooter({ text: 'Vision AI kadang salah baca angka — pastikan bener dulu, ya' });
 
@@ -70,11 +79,14 @@ export async function execute(interaction) {
 
   collector.on('collect', async i => {
     if (i.customId === 'lari-foto-simpan') {
-      const { id } = insertRun({ userId: interaction.user.id, jarakKm, durasiDetik, tanggal });
+      const { id } = insertRun({
+        userId: interaction.user.id, jarakKm, durasiDetik, tanggal,
+        detakJantung, elevasiM, zonaDominan,
+      });
       previewEmbed
         .setTitle('🏃 Lari tersimpan!')
         .setColor(0x2ecc71)
-        .setFooter({ text: `ID #${id} — pakai /hapus id:${id} kalau ternyata masih salah` });
+        .setFooter({ text: `ID #${id} — pakai /revisi id:${id} kalau ternyata masih salah` });
     } else {
       previewEmbed.setTitle('❌ Dibatalkan, tidak disimpan').setColor(0x95a5a6).setFooter(null);
     }
@@ -108,10 +120,15 @@ async function extractRunFromImage(imageUrl) {
           content:
             'Kamu meng-ekstrak data lari dari screenshot app fitness (Strava, Fitbeing, Garmin, dll). ' +
             'Balas HANYA JSON, tanpa teks lain, dengan schema persis: ' +
-            '{"jarak_km": number|null, "durasi_detik": number|null, "tanggal": "YYYY-MM-DD"|null}. ' +
+            '{"jarak_km": number|null, "durasi_detik": number|null, "tanggal": "YYYY-MM-DD"|null, ' +
+            '"detak_jantung_avg": number|null, "elevasi_m": number|null, "zona_dominan": string|null}. ' +
             'jarak_km = total jarak dalam kilometer (konversi kalau satuan aslinya meter/mil). ' +
             'durasi_detik = total durasi lari dalam detik (konversi dari format jam/menit/detik yang tertulis). ' +
             'tanggal = tanggal sesi lari kalau tertulis di gambar (format YYYY-MM-DD), kalau tidak ada isi null. ' +
+            'detak_jantung_avg = rata-rata detak jantung (bpm) sesi ini kalau ada, biasanya berlabel "Rata-rata" atau "Avg". ' +
+            'elevasi_m = elevation gain/keuntungan ketinggian dalam meter kalau ada. ' +
+            'zona_dominan = kalau ada breakdown zona detak jantung (Zona 1-5 dengan waktu di tiap zona), ' +
+            'isi dengan zona yang punya waktu/persentase TERBESAR, format string "Zona N" (N=1-5). Kalau tidak ada breakdown zona, isi null. ' +
             'Ambil angka RINGKASAN TOTAL sesi (bukan angka per-kilometer/split/pace sesaat).',
         },
         {
@@ -136,5 +153,8 @@ async function extractRunFromImage(imageUrl) {
     jarakKm: typeof parsed.jarak_km === 'number' ? parsed.jarak_km : null,
     durasiDetik: typeof parsed.durasi_detik === 'number' ? Math.round(parsed.durasi_detik) : null,
     tanggal: typeof parsed.tanggal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.tanggal) ? parsed.tanggal : null,
+    detakJantung: typeof parsed.detak_jantung_avg === 'number' ? Math.round(parsed.detak_jantung_avg) : null,
+    elevasiM: typeof parsed.elevasi_m === 'number' ? parsed.elevasi_m : null,
+    zonaDominan: typeof parsed.zona_dominan === 'string' && /^Zona [1-5]$/.test(parsed.zona_dominan) ? parsed.zona_dominan : null,
   };
 }

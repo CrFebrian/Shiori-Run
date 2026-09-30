@@ -87,6 +87,23 @@ export function formatJam(menitSejakTengahMalam) {
   return `${String(j).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+// "25m", "25", "150.5m" → elevasi dalam meter (number). null kalau gagal.
+export function parseElevasi(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim().toLowerCase().replace(',', '.');
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*m?$/);
+  if (!m) return null;
+  return parseFloat(m[1]);
+}
+
+// "Zona 4", "zona4", "z4", "4" → "Zona 4" (dinormalisasi). null kalau gagal.
+export function parseZona(raw) {
+  if (!raw) return null;
+  const m = String(raw).trim().match(/^(?:zona\s*|z)?([1-5])$/i);
+  if (!m) return null;
+  return `Zona ${m[1]}`;
+}
+
 // Jarak antara 2 titik koordinat bumi (km), rumus Haversine — dipakai buat
 // matching Buddy Finder, murni matematika, nggak butuh API peta apapun.
 export function haversineKm(lat1, lon1, lat2, lon2) {

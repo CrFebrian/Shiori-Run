@@ -2,7 +2,7 @@
 .env
 node_modules/
 
-# Database lokal
+# Database lokal 
 data/
 *.db
 *.db-journal

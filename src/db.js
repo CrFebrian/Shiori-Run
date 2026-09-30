@@ -20,7 +20,23 @@ db.exec(`
     created_at INTEGER NOT NULL  -- unix ms, buat urutan /riwayat
   );
   CREATE INDEX IF NOT EXISTS idx_runs_user_tanggal ON runs (user_id, tanggal);
+`);
 
+// Migrasi ringan: tambah kolom baru kalau belum ada, tanpa hapus data lama.
+// Perlu ini karena user yang udah pakai bot dari awal punya tabel `runs`
+// versi lama (tanpa kolom ini).
+const kolomAda = db.prepare('PRAGMA table_info(runs)').all().map(c => c.name);
+for (const [kolom, tipe] of [
+  ['detak_jantung_avg', 'INTEGER'],
+  ['elevasi_m', 'REAL'],
+  ['zona_dominan', 'TEXT'],
+]) {
+  if (!kolomAda.includes(kolom)) {
+    db.exec(`ALTER TABLE runs ADD COLUMN ${kolom} ${tipe}`);
+  }
+}
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS buddy_prefs (
     user_id TEXT PRIMARY KEY,
     jam_menit INTEGER NOT NULL,   -- menit sejak 00:00, dari parseJam()
@@ -61,13 +77,40 @@ export function listOtherBuddyPrefs(excludeUserId) {
   return db.prepare('SELECT * FROM buddy_prefs WHERE user_id != ?').all(excludeUserId);
 }
 
-export function insertRun({ userId, jarakKm, durasiDetik, tanggal }) {
+export function insertRun({
+  userId, jarakKm, durasiDetik, tanggal,
+  detakJantung = null, elevasiM = null, zonaDominan = null,
+}) {
   const stmt = db.prepare(`
-    INSERT INTO runs (user_id, jarak_km, durasi_detik, tanggal, created_at)
-    VALUES (@userId, @jarakKm, @durasiDetik, @tanggal, @createdAt)
+    INSERT INTO runs (user_id, jarak_km, durasi_detik, tanggal, detak_jantung_avg, elevasi_m, zona_dominan, created_at)
+    VALUES (@userId, @jarakKm, @durasiDetik, @tanggal, @detakJantung, @elevasiM, @zonaDominan, @createdAt)
   `);
-  const info = stmt.run({ userId, jarakKm, durasiDetik, tanggal, createdAt: Date.now() });
+  const info = stmt.run({ userId, jarakKm, durasiDetik, tanggal, detakJantung, elevasiM, zonaDominan, createdAt: Date.now() });
   return { id: info.lastInsertRowid };
+}
+
+export function getRunById(id, userId) {
+  return db.prepare('SELECT * FROM runs WHERE id = ? AND user_id = ?').get(id, userId);
+}
+
+// patch: object berisi salah satu/lebih dari jarakKm, durasiDetik, tanggal,
+// detakJantung, elevasiM, zonaDominan. Cuma field yang ada di patch yang di-update.
+const REVISI_FIELD_MAP = {
+  jarakKm: 'jarak_km',
+  durasiDetik: 'durasi_detik',
+  tanggal: 'tanggal',
+  detakJantung: 'detak_jantung_avg',
+  elevasiM: 'elevasi_m',
+  zonaDominan: 'zona_dominan',
+};
+
+export function updateRun(id, userId, patch) {
+  const keys = Object.keys(patch).filter(k => REVISI_FIELD_MAP[k]);
+  if (keys.length === 0) return false;
+  const setClause = keys.map(k => `${REVISI_FIELD_MAP[k]} = @${k}`).join(', ');
+  const info = db.prepare(`UPDATE runs SET ${setClause} WHERE id = @id AND user_id = @userId`)
+    .run({ ...patch, id, userId });
+  return info.changes > 0;
 }
 
 export function deleteRun(id, userId) {
@@ -77,7 +120,8 @@ export function deleteRun(id, userId) {
 
 export function listRuns(userId, limit = 10) {
   return db.prepare(`
-    SELECT id, jarak_km AS jarakKm, durasi_detik AS durasiDetik, tanggal
+    SELECT id, jarak_km AS jarakKm, durasi_detik AS durasiDetik, tanggal,
+           detak_jantung_avg AS detakJantung, elevasi_m AS elevasiM, zona_dominan AS zonaDominan
     FROM runs WHERE user_id = ?
     ORDER BY tanggal DESC, created_at DESC
     LIMIT ?
@@ -91,7 +135,9 @@ export function getRekapBulan(userId, bulan) {
       COUNT(*) AS jumlahLari,
       COALESCE(SUM(jarak_km), 0) AS totalJarak,
       COALESCE(SUM(durasi_detik), 0) AS totalDurasi,
-      COALESCE(MAX(jarak_km), 0) AS jarakTerjauh
+      COALESCE(MAX(jarak_km), 0) AS jarakTerjauh,
+      ROUND(AVG(detak_jantung_avg)) AS rataDetakJantung,
+      COALESCE(SUM(elevasi_m), 0) AS totalElevasi
     FROM runs
     WHERE user_id = ? AND tanggal LIKE ?
   `).get(userId, `${bulan}-%`);
